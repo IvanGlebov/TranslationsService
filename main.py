@@ -1,4 +1,4 @@
-from ssl import create_default_context
+import time
 import json
 import yaml
 import os
@@ -16,10 +16,6 @@ config = {}
 en_alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
 def main():
-
-
-  with open('config.json', 'r') as stream:
-    config = json.load(stream)
 
   # print('config')
   # print(config)
@@ -61,9 +57,9 @@ def main():
         break
 
     # Пробегаемся по всем полученным папкам
-    for file in files:
+    for f in files:
       # Получаем все файлы внутри текущей папки с типом spreadsheet и с именем config.get('big_table_name')
-      innerFiles = driveService.files().list(q=f"mimeType='application/vnd.google-apps.spreadsheet' and name='{config.get('big_table_name')}' and '{file.get('id')}' in parents",
+      innerFiles = driveService.files().list(q=f"mimeType='application/vnd.google-apps.spreadsheet' and name='{config.get('big_table_name')}' and '{f.get('id')}' in parents",
                                       spaces='drive',
                                       fields='nextPageToken, '
                                               'files(id, name)',
@@ -95,7 +91,7 @@ def main():
       for col in df_headers:
         temp_df = df[col]
         temp_df = temp_df.dropna()
-        if temp_df.size >= df['en'].size /4:
+        if temp_df.size >= df['en'].size / 4:
           new_df_headers.append(temp_df.name)
       data = df[[new_df_headers[0]]].dropna()
       new_df = pd.merge(data, df, on=new_df_headers[0])
@@ -137,6 +133,7 @@ def main():
         print(exc)
     # print(old_translations)
 
+    languagesCounter = {}
     for new_translation_file in yaml_files:
       new_translations = ''
       try:
@@ -153,17 +150,42 @@ def main():
             del temp_new_translations['alias']
             # if __mode == 'overwrite':
             for idx, lang in enumerate(temp_new_translations):
-              temp_old_translations[lang] = temp_new_translations[lang]
+              if temp_new_translations[lang] != '':
+              # If translation is not equal
+                try:
+                  if temp_old_translations[lang] != temp_new_translations[lang]:
+                    languagesCounter[lang] = languagesCounter[lang] + 1
+                    temp_old_translations[lang] = temp_new_translations[lang]
+                except KeyError as key:
+                  languagesCounter[lang] = 1
+                  temp_old_translations[lang] = temp_new_translations[lang]
             old_translations[index] = temp_old_translations
+    # Выгрузка обновлённого файла
     with open(os.path.join(repo_path, 'src/data/locales/translations.yaml'), 'w') as stream:
       try:
         yaml.dump(old_translations, stream, default_flow_style=False)
       except yaml.YAMLError as exc:
         print(exc)
+
+    # Считаем обновлённые языки. Язык указывается если количество обновлённых строк больше половины от максимального
+    maxValue = 0
+    for el in languagesCounter:
+      if languagesCounter[el] > maxValue:
+        maxValue = languagesCounter[el]
+
+    final_languages = [el for el in languagesCounter if languagesCounter[el] >= maxValue / 2 and languagesCounter[el] > 2]
+    
+    languages = ''
+    for lang in final_languages:
+      if languages != '':
+        languages += f", {lang}"
+      else:
+        languages += lang
+
+    # Делаем коммит и пушим
     try:
-      # Делаем коммит и пушим
       repo.git.add(update=True)
-      repo.index.commit('Updated translations')
+      repo.index.commit(f'Automatic translations update for: {languages}')
       origin = repo.remote(name='origin')
       origin.push()
     except error:
@@ -174,4 +196,14 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  # Бесконечная работа по интервалу
+  while True:
+    # Читаем файл конфига
+    with open('config.json', 'r') as stream:
+      config = json.load(stream)
+
+    main()
+    print(f"Sleep for {config.get('days')} days, {config.get('hours')} hours, {config.get('minutes')} minutes and {config.get('seconds')} seconds")
+
+    # Ожидаем следующего запуска
+    time.sleep(config.get('seconds') + config.get('minutes') * 60 + config.get('hours') * 3600 + config.get('days') * 86400)
