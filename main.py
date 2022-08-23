@@ -122,7 +122,7 @@ def main():
       print('Репозиторий уже представлен. Обновляем...')
       repo = Repo('TempDir')
       for remote in repo.remotes:
-        remote.fetch()
+        remote.pull()
     
     # Получение файла со старыми переводами
     old_translations = ''
