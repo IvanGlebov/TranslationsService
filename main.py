@@ -163,7 +163,7 @@ def main():
     # Выгрузка обновлённого файла
     with open(os.path.join(repo_path, 'src/data/locales/translations.yaml'), 'w') as stream:
       try:
-        yaml.dump(old_translations, stream, default_flow_style=False)
+        yaml.dump(old_translations, stream, default_flow_style=False, allow_unicode=True)
       except yaml.YAMLError as exc:
         print(exc)
 
