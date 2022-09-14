@@ -7,5 +7,6 @@
     "days": 1,
     "hours": 0,
     "minutes": 1,
-    "seconds": 0
+    "seconds": 0,
+    "token_refresh_interval": 3000
 }

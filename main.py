@@ -1,3 +1,4 @@
+import threading
 import time
 import json
 import yaml
@@ -14,7 +15,7 @@ import authorize
 config = {}
 
 en_alphabet = 'abcdefghijklmnopqrstuvwxyz'
-
+creds = {}
 def main():
 
   # print('config')
@@ -193,14 +194,29 @@ def main():
   except HttpError as error:
     print(f'An error occurred: {error}')
 
+def authorizer():
+  print('Refresh authorization token')
+  creds = authorize.authorize()
 
+def set_interval(func, sec):
+  def func_wrapper():
+    set_interval(func, sec)
+    func()
+  t = threading.Timer(sec, func_wrapper)
+  t.start()
+  return t
 
 if __name__ == '__main__':
+  with open('config.json', 'r') as stream:
+      config = json.load(stream)
+
+  # Обновление токена авторизации, чтобы он не протухал 
+  set_interval(authorizer, config.get('token_refresh_interval'))
+
   # Бесконечная работа по интервалу
   while True:
     # Читаем файл конфига
-    with open('config.json', 'r') as stream:
-      config = json.load(stream)
+    
 
     main()
     print(f"Sleep for {config.get('days')} days, {config.get('hours')} hours, {config.get('minutes')} minutes and {config.get('seconds')} seconds")
